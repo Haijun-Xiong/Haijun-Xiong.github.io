@@ -15,7 +15,7 @@ body {
   border-radius: 5px;
 }
 .menu li :hover{
-  background-color:red;
+  background-color:rgb(233, 224, 224);
   color: black;
 }
 .menu, .article-meta, footer { text-align: center; }
