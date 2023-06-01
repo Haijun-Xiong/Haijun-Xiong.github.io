@@ -1,4 +1,4 @@
-# haijunxiong.github.io
+# haijun-xiong.github.io
 My blog
 
-https://haijunxiong.github.io/
+https://haijun-xiong.github.io/
