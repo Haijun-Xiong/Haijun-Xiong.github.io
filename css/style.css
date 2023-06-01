@@ -14,10 +14,6 @@ body {
   padding: 5px;
   border-radius: 5px;
 }
-.menu li :hover{
-  background-color:rgb(233, 224, 224);
-  color: black;
-}
 .menu, .article-meta, footer { text-align: center; }
 .title { font-size: 1.1em; }
 footer a { text-decoration: none; }
