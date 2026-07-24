@@ -27,6 +27,24 @@ body {
 .menu, .article-meta, footer { text-align: center; }
 .title { font-size: 1.1em; }
 footer a { text-decoration: none; }
+
+.scholar-stats {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5em 1em;
+}
+
+.scholar-stats span {
+  background: #f3f3f3;
+  border-radius: 5px;
+  padding: 0.15em 0.55em;
+}
+
+.scholar-stats small {
+  color: #777;
+}
+
 hr {
   border-style: dashed;
   color: #ddd;
