@@ -11,37 +11,72 @@
 </head>
 
 <body>
-    <hr>
-    <div class=article-meta>
-        <h1><span class=title>Haijun Xiong <span lang="zh-cn">熊海军</span></h1>
-    </div>
-    <hr>
+    <header class="profile-card">
+        <div class="profile-copy">
+            <h1 class="profile-name">Haijun Xiong <span lang="zh-cn">熊海军</span></h1>
+            <p class="profile-affiliation"><strong>Ph.D. Candidate</strong> · Huazhong University of Science &amp; Technology · EIC</p>
+            <a class="profile-cv" href="./pdf/xiong_CV.pdf">View CV <span aria-hidden="true">→</span></a>
+        </div>
+        <img class="profile-photo" src="./assets/20240719.jpg" alt="Haijun Xiong">
+    </header>
 
-    <img src=./assets/20240719.jpg style=max-width:20%;min-width:50px;float:right>
-    <h1>About Me</span></h1>
+    <main>
+    <section class="content-card about-section">
+    <h2 class="section-heading">About</h2>
     <p>
-        I am now a Ph.D. student under the supervision of Prof. <a href="http://faculty.hust.edu.cn/fengbin1/zh_CN/index/1489780/list/index.htm">Bin Feng</a> at <a href=http://hust.edu.cn>Huazhong University of Science & Technology (HUST)</a>, <a href=http://eic.hust.edu.cn>School of Electronic Information and Communications (EIC)</a>. Before that, I received my B.Sc degree in Electronic Information Engineering from <a href=http://hust.edu.cn>Huazhong University of Science & Technology</a>, China, in 2022. 
+        I am a <strong>Ph.D. candidate</strong> in the <a href="http://eic.hust.edu.cn">School of Electronic Information and Communications (EIC)</a> at <a href="http://hust.edu.cn">Huazhong University of Science &amp; Technology (HUST)</a>. I received my B.Sc. in Electronic Information Engineering from HUST in 2022.
     </p>
     <p>
-        I major in Computer Vision and Deep Learning, and have published several papers about <strong>Gait Recognition</strong> on some venues. My past research scope involves <strong> Gait Recognition</strong>. The potential research I look forward to might be around <strong> Human-Centered Vision Tasks </strong> and <strong> Fine-grained Recognition Tasks</strong>, close to <strong> Representation Learning </strong>. Also, I'm open to discussing other potential directions. Please feel free to get in touch with me! 
+        My research interests broadly span <strong>Computer Vision</strong> and <strong>Deep Learning</strong>, including <strong>MLLM-based video understanding</strong>, <strong>Gait recognition</strong>, <strong>Human-centered vision</strong>, <strong>Fine-grained recognition</strong>, and <strong>Representation learning</strong>.
     </p>
     <p>
-        <strong>Email:</strong> xionghj@hust.edu.cn
+        <strong>Email:</strong> <a href="mailto:xionghj@hust.edu.cn">xionghj@hust.edu.cn</a>
     </p>
     <p class="scholar-stats">
         <a href="https://scholar.google.com/citations?user=GDTyz2kAAAAJ&amp;hl=en">Google Scholar</a>
-        <span>Citations <strong id="gs-citations">72</strong></span>
+        <span>Citations <strong id="gs-citations">78</strong></span>
         <span>h-index <strong id="gs-hindex">4</strong></span>
+        <span id="gs-year-chart" class="gs-year-chart" aria-label="Citations per year"></span>
     </p>
-    <hr>
+    </section>
 
-    <h1>Curriculum Vitae</h1>
-    <p>
-        Here is my <a href="./pdf/xiong_CV.pdf">CV</a>.
-    </p>
+    <section class="content-card page-section education-section">
+    <h1>Education</h1>
+        <div class="education-timeline" aria-label="Education history">
+            <article class="education-entry">
+                <div class="education-period"><span>2024-09</span><span>Present</span></div>
+                <div class="education-details">
+                    <div class="education-title-row">
+                        <p class="education-degree">Ph.D. Candidate</p>
+                        <h2>Information and Communication Engineering</h2>
+                    </div>
+                    <p class="education-institution"><a href=http://eic.hust.edu.cn>School of Electronic Information and Communications</a>, <a href=http://hust.edu.cn>Huazhong University of Science &amp; Technology</a></p>
+                </div>
+            </article>
+            <article class="education-entry">
+                <div class="education-period"><span>2022-09</span><span>2024-09</span></div>
+                <div class="education-details">
+                    <div class="education-title-row">
+                        <p class="education-degree">M.S.</p>
+                        <h2>Information and Communication Engineering</h2>
+                    </div>
+                    <p class="education-institution"><a href=http://eic.hust.edu.cn>School of Electronic Information and Communications</a>, <a href=http://hust.edu.cn>Huazhong University of Science &amp; Technology</a></p>
+                </div>
+            </article>
+            <article class="education-entry">
+                <div class="education-period"><span>2018-09</span><span>2022-06</span></div>
+                <div class="education-details">
+                    <div class="education-title-row">
+                        <p class="education-degree">B.Sc.</p>
+                        <h2>Electronic Information Engineering</h2>
+                    </div>
+                    <p class="education-institution"><a href=http://eic.hust.edu.cn>School of Electronic Information and Communications</a>, <a href=http://hust.edu.cn>Huazhong University of Science &amp; Technology</a></p>
+                </div>
+            </article>
+        </div>
+    </section>
 
-    <hr>
-
+    <section class="content-card page-section">
     <h1>Publications</h1>
     <h2>Journals</h2>
         <ol>
@@ -77,10 +112,10 @@
             </li>
         </ol>
 
-    <hr>
+    </section>
 
-    <h1>Acitvives</h1>
-    <h2>Talks</h2>
+    <section class="content-card page-section">
+    <h1>Talks</h1>
         <ul>
             <li>
                 <p>Invited talk on &ldquo;2nd Seminar on Gait&rdquo;. See <a href=./pdf/pre/2nd_gait_seminar.pdf>slides</a></p>
@@ -88,16 +123,13 @@
             <li>
                 <p>Invited talk on &ldquo;HID 2021: Competition on Human Identification at a Distance 2021&rdquo; at <a href=http://hid2021.iapr-tc4.org>International Joint Conference on Biometrics (IJCB)</a></em>, Shenzhen, China, 2021. See <a href=./pdf/pre/talk_xiong_IJCB2021.pdf>slides</a></p>
             </li>
-        </ul>
-    <hr>
-    <div class="center-div">
-        <div align="center" style="margin:auto;padding-top:10px">
-            <!-- <script type="text/javascript" id="clustrmaps" src="//clustrmaps.com/map_v2.js?d=Oxo7s8X6oBW7L3tZES_U_4rd_RERQRuNSc1HO8TerAQ&cl=ffffff&w=a"></script> -->
-            <div style="width:50%">
-                <script type="text/javascript" id="mapmyvisitors" src="//mapmyvisitors.com/map.js?d=AXqM-yC69iHBX-3vj-DXeqzXp2DSlPzZCHMnaSwukfQ&cl=ffffff&w=a"></script>
-            </div>
-        </div>
-    </div>
+    </ul>
+    </section>
 
-    <footer class="bottombar" role="contentinfo">© <span id="footer-year">2026</span> Haijun Xiong · Last updated: <span id="footer-updated">July 2025</span></footer>
+    <div class="visitor-map">
+        <script type="text/javascript" id="mapmyvisitors" src="//mapmyvisitors.com/map.js?d=AXqM-yC69iHBX-3vj-DXeqzXp2DSlPzZCHMnaSwukfQ&cl=ffffff&w=a"></script>
+    </div>
+    </main>
+
+    <footer class="bottombar" role="contentinfo">© <span id="footer-year">2026</span> Haijun Xiong · Last updated: <span id="footer-updated">August 2026</span></footer>
 </body>

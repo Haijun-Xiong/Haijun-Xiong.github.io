@@ -15,7 +15,6 @@ PROFILE_URL = (
     "https://scholar.google.com/citations?hl=en&user=" + SCHOLAR_USER_ID
 )
 OUTPUT_PATH = Path(__file__).resolve().parents[1] / "data" / "scholar.json"
-INDEX_PATH = Path(__file__).resolve().parents[1] / "index.html"
 USER_AGENT = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
     "AppleWebKit/537.36 (KHTML, like Gecko) "
@@ -48,6 +47,26 @@ def parse_stats(html: str) -> tuple[int, int]:
     return citations, hindex
 
 
+def parse_yearly_citations(html: str) -> dict[str, int]:
+    """Extract the citation graph as ``{year: citation_count}``."""
+    years = re.findall(
+        r'class=["\']gsc_g_t["\'][^>]*>\s*(\d{4})\s*<',
+        html,
+    )
+    citations = re.findall(
+        r'class=["\']gsc_g_al["\'][^>]*>\s*([\d,]+)\s*<',
+        html,
+    )
+
+    if not years or len(years) != len(citations):
+        return {}
+
+    return {
+        year: int(count.replace(",", ""))
+        for year, count in zip(years, citations)
+    }
+
+
 def load_existing() -> dict:
     try:
         return json.loads(OUTPUT_PATH.read_text(encoding="utf-8"))
@@ -65,46 +84,13 @@ def write_json(data: dict) -> None:
     temporary_path.replace(OUTPUT_PATH)
 
 
-def update_index_fallback(
-    citations: int,
-    hindex: int,
-    updated_date: str,
-) -> None:
-    html = INDEX_PATH.read_text(encoding="utf-8")
-    month_year = dt.date.fromisoformat(updated_date).strftime("%B %Y")
-    replacements = (
-        (r'(<strong id="gs-citations">)[^<]*(</strong>)', f"{citations:,}"),
-        (r'(<strong id="gs-hindex">)[^<]*(</strong>)', str(hindex)),
-        (
-            r'(<span id="footer-year">)[^<]*(</span>)',
-            str(dt.date.today().year),
-        ),
-        (
-            r'(<span id="footer-updated">)[^<]*(</span>)',
-            month_year,
-        ),
-    )
-
-    for pattern, value in replacements:
-        html, count = re.subn(
-            pattern,
-            rf"\g<1>{value}\g<2>",
-            html,
-            count=1,
-        )
-        if count != 1:
-            raise ValueError(f"Could not update index.html using {pattern}")
-
-    temporary_path = INDEX_PATH.with_suffix(".html.tmp")
-    temporary_path.write_text(html, encoding="utf-8")
-    temporary_path.replace(INDEX_PATH)
-
-
 def main() -> int:
     existing = load_existing()
 
     try:
-        citations, hindex = parse_stats(fetch_profile())
+        profile_html = fetch_profile()
+        citations, hindex = parse_stats(profile_html)
+        yearly_citations = parse_yearly_citations(profile_html)
     except Exception as error:
         print(f"Fetch failed; keeping existing data: {error}")
         return 0
@@ -120,9 +106,13 @@ def main() -> int:
         )
         return 0
 
+    if not yearly_citations:
+        yearly_citations = existing.get("years", {})
+
     data_changed = not (
         citations == old_citations
         and hindex == old_hindex
+        and yearly_citations == existing.get("years", {})
         and existing.get("updated")
     )
     updated_date = (
@@ -138,10 +128,9 @@ def main() -> int:
                 "hindex": hindex,
                 "updated": updated_date,
                 "profile": PROFILE_URL,
+                "years": yearly_citations,
             }
         )
-
-    update_index_fallback(citations, hindex, updated_date)
 
     if data_changed:
         print(f"Updated: citations={citations}, h-index={hindex}")
