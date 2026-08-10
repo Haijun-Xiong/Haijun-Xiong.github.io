@@ -2,8 +2,8 @@ name: Update Google Scholar stats
 
 on:
   schedule:
-    # Every day at 16:01 UTC (00:01 Beijing time).
-    - cron: "1 16 * * *"
+    # Every Monday at 00:01 Beijing time (Sunday 16:01 UTC).
+    - cron: "1 16 * * 0"
   workflow_dispatch:
 
 permissions:
