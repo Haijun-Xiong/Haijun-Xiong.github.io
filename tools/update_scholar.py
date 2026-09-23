@@ -14,7 +14,8 @@ import requests
 
 
 AUTHOR_ID = "GDTyz2kAAAAJ"
-API_KEY = os.environ["SERPAPI_KEY"]
+
+SERPAPI_KEY = os.environ["SERPAPI_KEY"]
 
 API_URL = "https://serpapi.com/search.json"
 
@@ -30,20 +31,22 @@ OUTPUT = (
 
 
 def fetch() -> dict:
-    r = requests.get(
+    """Fetch Google Scholar author profile from SerpAPI."""
+
+    response = requests.get(
         API_URL,
         params={
             "engine": "google_scholar_author",
             "author_id": AUTHOR_ID,
             "hl": "en",
-            "api_key": API_KEY,
+            "api_key": SERPAPI_KEY,
         },
         timeout=30,
     )
 
-    r.raise_for_status()
+    response.raise_for_status()
 
-    data = r.json()
+    data = response.json()
 
     if "error" in data:
         raise RuntimeError(data["error"])
@@ -51,53 +54,104 @@ def fetch() -> dict:
     return data
 
 
-def number(value):
-    """Parse SerpAPI number formats."""
+
+def normalize_number(value):
+    """Convert SerpAPI number formats to int."""
+
+    if value is None:
+        return None
 
     if isinstance(value, dict):
-        value = value.get("all", 0)
+        value = (
+            value.get("all")
+            or value.get("total")
+            or value.get("since_2021")
+        )
 
-    return int(
-        str(value).replace(",", "")
-    )
+    try:
+        return int(
+            str(value)
+            .replace(",", "")
+        )
+    except Exception:
+        return None
+
+
+
+def find_values(obj, result=None):
+    """
+    Recursively search possible citation fields.
+    """
+
+    if result is None:
+        result = {
+            "citations": None,
+            "hindex": None,
+        }
+
+
+    if isinstance(obj, dict):
+
+        for key, value in obj.items():
+
+            key_lower = key.lower()
+
+
+            if key_lower in [
+                "citations",
+                "cited_by",
+                "citation_count",
+            ]:
+
+                number = normalize_number(value)
+
+                if number is not None:
+                    result["citations"] = number
+
+
+
+            if key_lower in [
+                "h_index",
+                "h-index",
+                "hindex",
+            ]:
+
+                number = normalize_number(value)
+
+                if number is not None:
+                    result["hindex"] = number
+
+
+
+            find_values(
+                value,
+                result,
+            )
+
+
+    elif isinstance(obj, list):
+
+        for item in obj:
+            find_values(
+                item,
+                result,
+            )
+
+
+    return result
+
 
 
 def parse(data: dict):
 
-    citations = None
-    hindex = None
+    values = find_values(data)
 
-    for item in data.get("cited_by", {}).get("table", []):
-
-        title = item.get(
-            "title",
-            ""
-        ).lower()
-
-        value = item.get(
-            "citations"
-        )
-
-        if "citation" in title:
-            citations = number(value)
-
-        elif "h-index" in title:
-            hindex = number(value)
-
-
-    # fallback
-    author = data.get("author", {})
-
-    citations = citations or author.get(
-        "cited_by"
-    )
-
-    hindex = hindex or author.get(
-        "h_index"
-    )
+    citations = values["citations"]
+    hindex = values["hindex"]
 
 
     if citations is None or hindex is None:
+
         raise ValueError(
             "Citation data not found"
         )
@@ -105,13 +159,27 @@ def parse(data: dict):
 
     years = {}
 
-    for item in data.get("cited_by", {}).get("graph", []):
+    graph = (
+        data
+        .get("cited_by", {})
+        .get("graph", [])
+    )
 
-        if "year" in item:
-            years[str(item["year"])] = item["citations"]
+
+    for item in graph:
+
+        year = item.get("year")
+        count = item.get("citations")
+
+        if year and count is not None:
+            years[str(year)] = int(count)
 
 
-    return int(citations), int(hindex), years
+    return (
+        citations,
+        hindex,
+        years,
+    )
 
 
 
@@ -152,46 +220,77 @@ def main():
 
     old = load()
 
-    try:
-        result = fetch()
-        citations, hindex, years = parse(result)
 
-    except Exception as e:
-        print(
-            f"Fetch failed; keeping existing data: {e}"
+    try:
+
+        data = fetch()
+
+        citations, hindex, years = parse(
+            data
         )
+
+
+    except Exception as error:
+
+        print(
+            f"Fetch failed; keeping existing data: {error}"
+        )
+
         return 0
 
 
-    # 防止异常下降
+
+    old_citations = old.get(
+        "citations",
+        0
+    )
+
+    old_hindex = old.get(
+        "hindex",
+        0
+    )
+
+
+    # 防止异常数据覆盖
     if (
-        citations < old.get("citations", 0)
-        or hindex < old.get("hindex", 0)
+        citations < old_citations
+        or hindex < old_hindex
     ):
+
         print(
             "New values are smaller; keeping old data."
         )
+
         return 0
 
 
-    data = {
+
+    result = {
         "citations": citations,
         "hindex": hindex,
         "updated": dt.date.today().isoformat(),
         "profile": PROFILE_URL,
-        "years": years or old.get("years", {}),
+        "years": years or old.get(
+            "years",
+            {}
+        ),
     }
 
 
-    if data != old:
-        save(data)
+    if result != old:
+
+        save(result)
+
         print(
-            f"Updated: citations={citations}, h-index={hindex}"
+            f"Updated: citations={citations}, "
+            f"h-index={hindex}"
         )
 
     else:
+
         print(
-            f"No change: citations={citations}, h-index={hindex}"
+            f"No change: citations={citations}, "
+            f"h-index={hindex}"
         )
 
 
