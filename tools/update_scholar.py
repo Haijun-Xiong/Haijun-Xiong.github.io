@@ -1,9 +1,6 @@
 #!/usr/bin/env python3
 """
-Update data/scholar.json from Google Scholar via SerpAPI.
-
-API:
-https://serpapi.com/google-scholar-author-api
+Update data/scholar.json using SerpAPI Google Scholar Author API.
 """
 
 from __future__ import annotations
@@ -16,233 +13,130 @@ from pathlib import Path
 import requests
 
 
-# ==================================================
-# Configuration
-# ==================================================
+AUTHOR_ID = "GDTyz2kAAAAJ"
+API_KEY = os.environ["SERPAPI_KEY"]
 
-SCHOLAR_USER_ID = "GDTyz2kAAAAJ"
-
-SERPAPI_KEY = os.environ.get("SERPAPI_KEY")
-
-if not SERPAPI_KEY:
-    raise RuntimeError(
-        "SERPAPI_KEY is not set"
-    )
-
-
-SERPAPI_URL = (
-    "https://serpapi.com/search.json"
-)
-
+API_URL = "https://serpapi.com/search.json"
 
 PROFILE_URL = (
-    "https://scholar.google.com/citations"
-    "?hl=en&user="
-    + SCHOLAR_USER_ID
+    f"https://scholar.google.com/citations?hl=en&user={AUTHOR_ID}"
 )
 
-
-OUTPUT_PATH = (
-    Path(__file__)
-    .resolve()
-    .parents[1]
+OUTPUT = (
+    Path(__file__).resolve().parents[1]
     / "data"
     / "scholar.json"
 )
 
 
-# ==================================================
-# Fetch SerpAPI
-# ==================================================
-
-def fetch_profile() -> dict:
-
-    params = {
-        "engine": "google_scholar_author",
-        "author_id": SCHOLAR_USER_ID,
-        "hl": "en",
-        "api_key": SERPAPI_KEY,
-    }
-
-
-    response = requests.get(
-        SERPAPI_URL,
-        params=params,
+def fetch() -> dict:
+    r = requests.get(
+        API_URL,
+        params={
+            "engine": "google_scholar_author",
+            "author_id": AUTHOR_ID,
+            "hl": "en",
+            "api_key": API_KEY,
+        },
         timeout=30,
     )
 
+    r.raise_for_status()
 
-    response.raise_for_status()
-
-
-    data = response.json()
-
+    data = r.json()
 
     if "error" in data:
-        raise RuntimeError(
-            data["error"]
-        )
-
+        raise RuntimeError(data["error"])
 
     return data
 
 
+def number(value):
+    """Parse SerpAPI number formats."""
 
-# ==================================================
-# Parse citations and h-index
-# ==================================================
+    if isinstance(value, dict):
+        value = value.get("all", 0)
 
-def parse_stats(data: dict) -> tuple[int, int]:
-
-    cited_by = data.get(
-        "cited_by",
-        {}
+    return int(
+        str(value).replace(",", "")
     )
 
 
-    table = cited_by.get(
-        "table",
-        []
-    )
-
+def parse(data: dict):
 
     citations = None
     hindex = None
 
+    for item in data.get("cited_by", {}).get("table", []):
 
-    for item in table:
-
-        title = (
-            item.get(
-                "title",
-                ""
-            )
-            .lower()
-        )
-
+        title = item.get(
+            "title",
+            ""
+        ).lower()
 
         value = item.get(
             "citations"
         )
 
-
-        if value is None:
-            continue
-
-
-        value = int(
-            str(value)
-            .replace(",", "")
-        )
-
-
         if "citation" in title:
-            citations = value
-
+            citations = number(value)
 
         elif "h-index" in title:
-            hindex = value
+            hindex = number(value)
 
+
+    # fallback
+    author = data.get("author", {})
+
+    citations = citations or author.get(
+        "cited_by"
+    )
+
+    hindex = hindex or author.get(
+        "h_index"
+    )
 
 
     if citations is None or hindex is None:
-
         raise ValueError(
-            "Cannot parse citation statistics. "
-            f"cited_by={cited_by}"
+            "Citation data not found"
         )
-
-
-    return citations, hindex
-
-
-
-# ==================================================
-# Parse yearly citations
-# ==================================================
-
-def parse_yearly_citations(data: dict) -> dict[str, int]:
-
-    cited_by = data.get(
-        "cited_by",
-        {}
-    )
-
-
-    graph = cited_by.get(
-        "graph",
-        []
-    )
 
 
     years = {}
 
+    for item in data.get("cited_by", {}).get("graph", []):
 
-    for item in graph:
-
-        year = item.get(
-            "year"
-        )
-
-        citations = item.get(
-            "citations"
-        )
+        if "year" in item:
+            years[str(item["year"])] = item["citations"]
 
 
-        if year and citations is not None:
-
-            years[str(year)] = int(
-                citations
-            )
-
-
-    return years
+    return int(citations), int(hindex), years
 
 
 
-# ==================================================
-# Load old data
-# ==================================================
-
-def load_existing() -> dict:
+def load():
 
     try:
-
         return json.loads(
-            OUTPUT_PATH.read_text(
+            OUTPUT.read_text(
                 encoding="utf-8"
             )
         )
 
-
-    except (
-        FileNotFoundError,
-        json.JSONDecodeError,
-        OSError,
-    ):
-
+    except Exception:
         return {}
 
 
 
-# ==================================================
-# Save JSON
-# ==================================================
+def save(data):
 
-def write_json(data: dict):
-
-    OUTPUT_PATH.parent.mkdir(
+    OUTPUT.parent.mkdir(
         parents=True,
         exist_ok=True,
     )
 
-
-    tmp = OUTPUT_PATH.with_suffix(
-        ".json.tmp"
-    )
-
-
-    tmp.write_text(
+    OUTPUT.write_text(
         json.dumps(
             data,
             indent=2,
@@ -253,141 +147,51 @@ def write_json(data: dict):
     )
 
 
-    tmp.replace(
-        OUTPUT_PATH
-    )
 
+def main():
 
-
-# ==================================================
-# Main
-# ==================================================
-
-def main() -> int:
-
-
-    existing = load_existing()
-
+    old = load()
 
     try:
+        result = fetch()
+        citations, hindex, years = parse(result)
 
-        profile = fetch_profile()
-
-
-        citations, hindex = parse_stats(
-            profile
-        )
-
-
-        yearly_citations = (
-            parse_yearly_citations(
-                profile
-            )
-        )
-
-
-    except Exception as error:
-
+    except Exception as e:
         print(
-            "Fetch failed; keeping existing data: "
-            f"{error}"
+            f"Fetch failed; keeping existing data: {e}"
         )
-
         return 0
 
 
-
-    old_citations = int(
-        existing.get(
-            "citations",
-            0
-        )
-    )
-
-
-    old_hindex = int(
-        existing.get(
-            "hindex",
-            0
-        )
-    )
-
-
-
-    # 防止异常下降覆盖
+    # 防止异常下降
     if (
-        citations < old_citations
-        or hindex < old_hindex
+        citations < old.get("citations", 0)
+        or hindex < old.get("hindex", 0)
     ):
-
         print(
-            "Fetched values are lower "
-            "than existing values; "
-            "keeping existing data."
+            "New values are smaller; keeping old data."
         )
-
         return 0
 
 
-
-    if not yearly_citations:
-
-        yearly_citations = existing.get(
-            "years",
-            {}
-        )
-
-
-    changed = not (
-        citations == old_citations
-        and hindex == old_hindex
-        and yearly_citations
-        == existing.get(
-            "years",
-            {}
-        )
-        and existing.get(
-            "updated"
-        )
-    )
+    data = {
+        "citations": citations,
+        "hindex": hindex,
+        "updated": dt.date.today().isoformat(),
+        "profile": PROFILE_URL,
+        "years": years or old.get("years", {}),
+    }
 
 
-
-    updated = (
-        dt.date.today().isoformat()
-        if changed
-        else existing.get(
-            "updated"
-        )
-    )
-
-
-
-    if changed:
-
-        write_json(
-            {
-                "citations": citations,
-                "hindex": hindex,
-                "updated": updated,
-                "profile": PROFILE_URL,
-                "years": yearly_citations,
-            }
-        )
-
-
+    if data != old:
+        save(data)
         print(
-            f"Updated: citations={citations}, "
-            f"h-index={hindex}"
+            f"Updated: citations={citations}, h-index={hindex}"
         )
-
 
     else:
-
         print(
-            f"No statistics changed: "
-            f"citations={citations}, "
-            f"h-index={hindex}"
+            f"No change: citations={citations}, h-index={hindex}"
         )
 
 
