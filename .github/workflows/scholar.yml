@@ -18,12 +18,20 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
+    env:
+      SERPAPI_KEY: ${{ secrets.SERPAPI_KEY }}
+
     steps:
       - name: Check out the website
         uses: actions/checkout@v4
 
-      - name: Fetch Google Scholar statistics
-        run: python3 tools/update_scholar.py
+      - name: Install dependencies
+        run: |
+          pip install requests
+
+      - name: Fetch Google Scholar statistics via SerpAPI
+        run: |
+          python3 tools/update_scholar.py
 
       - name: Commit changed statistics
         run: |
@@ -34,6 +42,7 @@ jobs:
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
           git add data/scholar.json
           git commit -m "Update Google Scholar stats"
           git push
