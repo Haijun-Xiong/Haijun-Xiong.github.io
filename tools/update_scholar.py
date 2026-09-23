@@ -14,12 +14,18 @@ import requests
 
 
 # =========================
-# Google Scholar profile
+# Configuration
 # =========================
 
 SCHOLAR_USER_ID = "GDTyz2kAAAAJ"
 
-SERPAPI_KEY = os.environ["SERPAPI_KEY"]
+SERPAPI_KEY = os.environ.get("SERPAPI_KEY")
+
+if not SERPAPI_KEY:
+    raise RuntimeError(
+        "SERPAPI_KEY environment variable is not set"
+    )
+
 
 SERPAPI_URL = (
     "https://serpapi.com/search.json"
@@ -43,7 +49,7 @@ OUTPUT_PATH = (
 
 
 # =========================
-# Fetch SerpAPI
+# Fetch Google Scholar data
 # =========================
 
 def fetch_profile() -> dict:
@@ -53,6 +59,7 @@ def fetch_profile() -> dict:
         "author_id": SCHOLAR_USER_ID,
         "hl": "en",
         "api_key": SERPAPI_KEY,
+        "no_cache": "true",
     }
 
 
@@ -62,13 +69,26 @@ def fetch_profile() -> dict:
         timeout=30,
     )
 
+
     response.raise_for_status()
 
-    return response.json()
+
+    data = response.json()
+
+
+    # SerpAPI error handling
+    if "error" in data:
+        raise RuntimeError(
+            data["error"]
+        )
+
+
+    return data
+
 
 
 # =========================
-# Parse statistics
+# Parse citation statistics
 # =========================
 
 def parse_stats(data: dict) -> tuple[int, int]:
@@ -77,6 +97,7 @@ def parse_stats(data: dict) -> tuple[int, int]:
         "cited_by",
         {}
     )
+
 
     table = cited_by.get(
         "table",
@@ -90,26 +111,41 @@ def parse_stats(data: dict) -> tuple[int, int]:
 
     for item in table:
 
-        title = item.get(
-            "title"
+        title = (
+            item.get(
+                "title",
+                ""
+            )
+            .lower()
         )
+
 
         value = item.get(
             "citations"
         )
 
 
-        if title == "Citations":
-            citations = int(value)
+        if not value:
+            continue
 
 
-        elif title == "h-index":
-            hindex = int(value)
+        if "citation" in title:
+            citations = int(
+                str(value).replace(",", "")
+            )
+
+
+        elif "h-index" in title:
+            hindex = int(
+                str(value).replace(",", "")
+            )
 
 
     if citations is None or hindex is None:
+
         raise ValueError(
-            "SerpAPI citation statistics not found"
+            "SerpAPI citation statistics not found. "
+            f"Available data keys: {list(data.keys())}"
         )
 
 
@@ -118,7 +154,7 @@ def parse_stats(data: dict) -> tuple[int, int]:
 
 
 # =========================
-# Load existing
+# Load old data
 # =========================
 
 def load_existing() -> dict:
@@ -142,7 +178,7 @@ def load_existing() -> dict:
 
 
 # =========================
-# Write JSON
+# Save data
 # =========================
 
 def write_json(data: dict):
@@ -181,7 +217,6 @@ def write_json(data: dict):
 
 def main() -> int:
 
-
     existing = load_existing()
 
 
@@ -207,7 +242,7 @@ def main() -> int:
     old_citations = int(
         existing.get(
             "citations",
-            0,
+            0
         )
     )
 
@@ -215,22 +250,20 @@ def main() -> int:
     old_hindex = int(
         existing.get(
             "hindex",
-            0,
+            0
         )
     )
 
 
-
-    # 防止异常数据覆盖
+    # Avoid replacing good data with bad data
     if (
         citations < old_citations
         or hindex < old_hindex
     ):
 
         print(
-            "Fetched values are lower "
-            "than existing values; "
-            "keeping existing data."
+            "Fetched values are lower than "
+            "existing values; keeping existing data."
         )
 
         return 0
@@ -247,7 +280,9 @@ def main() -> int:
     updated = (
         dt.date.today().isoformat()
         if changed
-        else existing["updated"]
+        else existing.get(
+            "updated"
+        )
     )
 
 
@@ -261,7 +296,7 @@ def main() -> int:
                 "profile": PROFILE_URL,
                 "years": existing.get(
                     "years",
-                    {},
+                    {}
                 ),
             }
         )
