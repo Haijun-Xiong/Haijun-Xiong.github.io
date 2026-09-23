@@ -1,142 +1,289 @@
 #!/usr/bin/env python3
-"""Update data/scholar.json from a public Google Scholar profile."""
+"""
+Update data/scholar.json from Google Scholar via SerpAPI.
+"""
 
 from __future__ import annotations
 
 import datetime as dt
 import json
-import re
-import urllib.request
+import os
 from pathlib import Path
 
+import requests
+
+
+# =========================
+# Google Scholar profile
+# =========================
 
 SCHOLAR_USER_ID = "GDTyz2kAAAAJ"
+
+SERPAPI_KEY = os.environ["SERPAPI_KEY"]
+
+SERPAPI_URL = (
+    "https://serpapi.com/search.json"
+)
+
+
 PROFILE_URL = (
-    "https://scholar.google.com/citations?hl=en&user=" + SCHOLAR_USER_ID
-)
-OUTPUT_PATH = Path(__file__).resolve().parents[1] / "data" / "scholar.json"
-USER_AGENT = (
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-    "AppleWebKit/537.36 (KHTML, like Gecko) "
-    "Chrome/126.0.0.0 Safari/537.36"
+    "https://scholar.google.com/citations"
+    "?hl=en&user="
+    + SCHOLAR_USER_ID
 )
 
 
-def fetch_profile() -> str:
-    request = urllib.request.Request(
-        PROFILE_URL,
-        headers={
-            "Accept-Language": "en-US,en;q=0.9",
-            "User-Agent": USER_AGENT,
-        },
-    )
-    with urllib.request.urlopen(request, timeout=30) as response:
-        return response.read().decode("utf-8", "ignore")
+OUTPUT_PATH = (
+    Path(__file__)
+    .resolve()
+    .parents[1]
+    / "data"
+    / "scholar.json"
+)
 
 
-def parse_stats(html: str) -> tuple[int, int]:
-    values = re.findall(
-        r'class=["\']gsc_rsb_std["\'][^>]*>\s*([\d,]+)\s*<',
-        html,
-    )
-    if len(values) < 3:
-        raise ValueError("Google Scholar statistics table was not found")
+# =========================
+# Fetch SerpAPI
+# =========================
 
-    citations = int(values[0].replace(",", ""))
-    hindex = int(values[2].replace(",", ""))
-    return citations, hindex
+def fetch_profile() -> dict:
 
-
-def parse_yearly_citations(html: str) -> dict[str, int]:
-    """Extract the citation graph as ``{year: citation_count}``."""
-    years = re.findall(
-        r'class=["\']gsc_g_t["\'][^>]*>\s*(\d{4})\s*<',
-        html,
-    )
-    citations = re.findall(
-        r'class=["\']gsc_g_al["\'][^>]*>\s*([\d,]+)\s*<',
-        html,
-    )
-
-    if not years or len(years) != len(citations):
-        return {}
-
-    return {
-        year: int(count.replace(",", ""))
-        for year, count in zip(years, citations)
+    params = {
+        "engine": "google_scholar_author",
+        "author_id": SCHOLAR_USER_ID,
+        "hl": "en",
+        "api_key": SERPAPI_KEY,
     }
 
 
+    response = requests.get(
+        SERPAPI_URL,
+        params=params,
+        timeout=30,
+    )
+
+    response.raise_for_status()
+
+    return response.json()
+
+
+# =========================
+# Parse statistics
+# =========================
+
+def parse_stats(data: dict) -> tuple[int, int]:
+
+    cited_by = data.get(
+        "cited_by",
+        {}
+    )
+
+    table = cited_by.get(
+        "table",
+        []
+    )
+
+
+    citations = None
+    hindex = None
+
+
+    for item in table:
+
+        title = item.get(
+            "title"
+        )
+
+        value = item.get(
+            "citations"
+        )
+
+
+        if title == "Citations":
+            citations = int(value)
+
+
+        elif title == "h-index":
+            hindex = int(value)
+
+
+    if citations is None or hindex is None:
+        raise ValueError(
+            "SerpAPI citation statistics not found"
+        )
+
+
+    return citations, hindex
+
+
+
+# =========================
+# Load existing
+# =========================
+
 def load_existing() -> dict:
+
     try:
-        return json.loads(OUTPUT_PATH.read_text(encoding="utf-8"))
-    except (FileNotFoundError, json.JSONDecodeError, OSError):
+
+        return json.loads(
+            OUTPUT_PATH.read_text(
+                encoding="utf-8"
+            )
+        )
+
+    except (
+        FileNotFoundError,
+        json.JSONDecodeError,
+        OSError,
+    ):
+
         return {}
 
 
-def write_json(data: dict) -> None:
-    OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    temporary_path = OUTPUT_PATH.with_suffix(".json.tmp")
-    temporary_path.write_text(
-        json.dumps(data, indent=2, ensure_ascii=False) + "\n",
+
+# =========================
+# Write JSON
+# =========================
+
+def write_json(data: dict):
+
+    OUTPUT_PATH.parent.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+
+    tmp = OUTPUT_PATH.with_suffix(
+        ".json.tmp"
+    )
+
+
+    tmp.write_text(
+        json.dumps(
+            data,
+            indent=2,
+            ensure_ascii=False,
+        )
+        + "\n",
         encoding="utf-8",
     )
-    temporary_path.replace(OUTPUT_PATH)
 
+
+    tmp.replace(
+        OUTPUT_PATH
+    )
+
+
+
+# =========================
+# Main
+# =========================
 
 def main() -> int:
+
+
     existing = load_existing()
 
+
     try:
-        profile_html = fetch_profile()
-        citations, hindex = parse_stats(profile_html)
-        yearly_citations = parse_yearly_citations(profile_html)
+
+        profile = fetch_profile()
+
+        citations, hindex = parse_stats(
+            profile
+        )
+
+
     except Exception as error:
-        print(f"Fetch failed; keeping existing data: {error}")
+
+        print(
+            f"Fetch failed; keeping existing data: {error}"
+        )
+
         return 0
 
-    old_citations = int(existing.get("citations", 0))
-    old_hindex = int(existing.get("hindex", 0))
 
-    # A lower value usually means Google returned an incomplete or blocked page.
-    if citations < old_citations or hindex < old_hindex:
+
+    old_citations = int(
+        existing.get(
+            "citations",
+            0,
+        )
+    )
+
+
+    old_hindex = int(
+        existing.get(
+            "hindex",
+            0,
+        )
+    )
+
+
+
+    # 防止异常数据覆盖
+    if (
+        citations < old_citations
+        or hindex < old_hindex
+    ):
+
         print(
-            "Fetched values are lower than the existing values; "
+            "Fetched values are lower "
+            "than existing values; "
             "keeping existing data."
         )
+
         return 0
 
-    if not yearly_citations:
-        yearly_citations = existing.get("years", {})
 
-    data_changed = not (
+
+    changed = not (
         citations == old_citations
         and hindex == old_hindex
-        and yearly_citations == existing.get("years", {})
         and existing.get("updated")
     )
-    updated_date = (
+
+
+    updated = (
         dt.date.today().isoformat()
-        if data_changed
-        else str(existing["updated"])
+        if changed
+        else existing["updated"]
     )
 
-    if data_changed:
+
+    if changed:
+
         write_json(
             {
                 "citations": citations,
                 "hindex": hindex,
-                "updated": updated_date,
+                "updated": updated,
                 "profile": PROFILE_URL,
-                "years": yearly_citations,
+                "years": existing.get(
+                    "years",
+                    {},
+                ),
             }
         )
 
-    if data_changed:
-        print(f"Updated: citations={citations}, h-index={hindex}")
+
+        print(
+            f"Updated: citations={citations}, "
+            f"h-index={hindex}"
+        )
+
+
     else:
-        print(f"No statistics changed: citations={citations}, h-index={hindex}")
+
+        print(
+            f"No statistics changed: "
+            f"citations={citations}, "
+            f"h-index={hindex}"
+        )
+
+
     return 0
+
 
 
 if __name__ == "__main__":
